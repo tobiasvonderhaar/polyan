@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="polyan",
-    version="2020.1",
+    version="2020.1.1",
     author="Tobias von der Haar",
     author_email="T.von-der-Haar@kent.ac.uk",
     license = "MIT",
@@ -27,4 +27,7 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Visualization",
     ],
     python_requires='>=3.6',
+    install_requires=[
+          'pandas','numpy','matplotlib','scipy'
+      ],
 )
