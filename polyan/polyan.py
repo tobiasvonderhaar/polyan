@@ -18,6 +18,14 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import json
 
+try:
+    import importlib.resources as pkg_resources
+except ImportError:
+    # Try backported to PY<37 `importlib_resources`.
+    import importlib_resources as pkg_resources
+
+from . import Data  # relative-import the *package* containing the data
+
 def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer', include_idle = True, poly_limit=30, remove_spurious_RNAs=True):
     """Calculates peak volumes of a polysome profile from a 
     footprinting dataset provided as a dataframe.
@@ -59,7 +67,7 @@ def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer'
     """
 
     #read in the parameter set to be used
-    with open("Data/parameters.json", "r") as read_file:
+    with pkg_resources.open_text(Data, 'parameters.json') as read_file:
         parameterset = json.load(read_file)
     if type(parset)== str:
         if parset in parameterset.keys():
@@ -91,7 +99,8 @@ def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer'
     #check whether reference RNA-Seq data need to be used
     if len(dats.columns) == 2:
         if 'RNA_reference' in parameters.keys():
-            RNA_ref = pd.read_csv(parameters['RNA_reference'])
+            with pkg_resources.open_text(Data, parameters['RNA_reference']) as read_file:
+                RNA_ref = pd.read_csv(read_file)
         else:
             print('No column for RNA data or RNA reference set have been specified.')
             return
@@ -113,7 +122,8 @@ def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer'
 
 
     #combine input dataset with gene length information
-    genes = pd.read_csv(parameters['gene_reference'])
+    with pkg_resources.open_text(Data, parameters['gene_reference']) as read_file:
+                RNA_ref = pd.read_csv(read_file)
     dats = dats.merge(genes[['name', 'length']],
                       how='inner', left_on='ORF', right_on='name')[
                           ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
@@ -216,7 +226,8 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
 
     def counts_to_RPKM(dats):
         #read in the gene length info dataset
-        genes = pd.read_csv(parameters['gene_reference'])
+        with pkg_resources.open_text(Data, parameters['gene_reference']) as read_file:
+                RNA_ref = pd.read_csv(read_file)
         #combine input dataset with gene length information
         dats = dats.merge(genes[['name', 'length']], how='inner', left_on='ORF', right_on='name')[
             ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
@@ -240,7 +251,7 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
         return Rdats
     
     #read in the parameter set to be used
-    with open("Data/parameters.json", "r") as read_file:
+    with pkg_resources.open_text(Data, 'parameters.json') as read_file:
         parameterset = json.load(read_file)
     if type(parset)== str:
         if parset in parameterset.keys():
