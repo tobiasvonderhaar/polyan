@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="polyan",
-    version="2020.1.2",
+    version="2021.1.1",
     author="Tobias von der Haar",
     author_email="T.von-der-Haar@kent.ac.uk",
     license = "MIT",
@@ -14,6 +14,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/tobiasvonderhaar/polyan",
     packages=setuptools.find_packages(),
+    package_data={'Data':['Data/*']},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -28,6 +29,7 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-          'pandas','numpy','matplotlib','scipy'
-      ],
+        'pandas', 'numpy', 'matplotlib', 'scipy'
+    ],
+    include_package_data=True,
 )

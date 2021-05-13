@@ -1,8 +1,8 @@
 """polyan provides functions for simulating polysome profiles from other
 types of data.
 
-It requires pandas and numpy to be installed within the Python 
-environment.
+It requires pandas, numpy and scipy to be installed within the Python
+environment. For compare_profiles pyplot is also required.
 
 fp2poly: models polysome peak info from ribosome footrinting data
 
@@ -26,120 +26,124 @@ except ImportError:
 
 from . import Data  # relative-import the *package* containing the data
 
-def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer', include_idle = True, poly_limit=30, remove_spurious_RNAs=True):
-    """Calculates peak volumes of a polysome profile from a 
+def fp2poly(df, has_RNA= True, has_length = False, parset = 'Scer', include_idle = True, poly_limit=30, remove_spurious_RNAs=True):
+    """Calculates peak volumes of a polysome profile from a
     footprinting dataset provided as a dataframe.
-    
-    The dataframe must be formatted to contain one column with gene 
+
+    The dataframe must be formatted to contain one column with gene
     names, one column with Ribo-Seq data, and one column with matching
     RNA-Seq data (optional).
-    
+
     Parameters
     ----------
     df: the pandas dataframe that contains the footprinting data
+
+    has_RNA: True indicates that the third column contains RNA Seq counts
     
-    df_columns: list including the column names for columns that contain 
-    the     gene names, Ribo-Seq data and RNA-Seq data in that order. 
-    Default is ['ORF','Ribo_Prints','RNA_Prints'].
-    
-    parset: either a keyword specifying a pre-defined parameterset 
+    has_length: True indicates that the third (if no RNA Seq data) or fourth
+    (if with RNA Seq data) column contains gene length data for calculating 
+    RPK values
+
+    parset: either a keyword specifying a pre-defined parameterset
     (currently 'Scer' or 'HEK', or a dictionary specifying 'Species':
     species name, 'RNA_content':number of RNAs per cell, 'Ribo_content':
-    number of ribosomes per cell, 'frac_act': fraction of actively 
-    translating ribosomes, 'frac_split':     fraction of inactive 
+    number of ribosomes per cell, 'frac_act': fraction of actively
+    translating ribosomes, 'frac_split':     fraction of inactive
     ribosomes that are split into separate subunits, 'gene_reference':
     path to a file listing all genes of the organism with their lengths
     and (optionally, if no column with RNA abundances is contained in df)
     'RNA_reference': path to a file listing RNA abundances .
-    
+
     include_idle: bool, if True (default) idle ribosomes are included.
-    
-    poly_limit:int. ignore any mRNAs containing more ribosomes than 
+
+    poly_limit:int. ignore any mRNAs containing more ribosomes than
     specified here. Deault is 30.
-    
-    remove_spurious_RNAs: bool, if True (default) ignores RNAs 
-    expressed at less than 0.05 RNAs per cell.
-    
+
+    remove_spurious_RNAs: bool, if True (default) ignores RNAs
+    expressed at fewer than 0.05 RNAs per cell.
+
     Returns
     -------
-    numpy array, containing the volume of individual peaks of the 
+    numpy array, containing the volume of individual peaks of the
     modelled polysome.
     """
+
+    #####prepare parset
 
     #read in the parameter set to be used
     with pkg_resources.open_text(Data, 'parameters.json') as read_file:
         parameterset = json.load(read_file)
+    #determine what kind of parameter was assigned to parset
+    #and process accordingly
     if type(parset)== str:
         if parset in parameterset.keys():
             parameters = parameterset[parset]
             print('Using parameterset for ' + parameters['Species'])
     elif type(parset)==dict and all(elem in parset.keys() for elem in ['Species','RNA_content','Ribo_content','frac_act','frac_split','gene_reference']):
         parameters=parset
-        print('Using parameterset for ' + parameters['Species'])
     else:
         print('\'parset\' needs to be either a keyword specifying a pre-defined parameterset, or a dictionary with the keys Species, RNA_content,Ribo_content,frac_act, frac_split, gene_reference and (optional) RNA_reference.')
         return
-    
+
     #####assemble a processible dataset
+    #test that the passed dataframe has a correect number of columns
+    if df.shape[1] > 2 + has_RNA + has_length:
+        print('Warning: too many colums. Columns ' + str(2 + has_RNA + has_length) + ' to ' + str(df.shape[1]) + ' will be ignored.')
+        df = df.iloc[:,:2 + has_RNA + has_length]
+    elif df.shape[1] < 2 + has_RNA + has_length:
+        raise ValueError('The dataframe does not have sufficient columns for the specified data')
+        return
+    colnames = ['ORF','Ribo_Prints']
+    if has_RNA: 
+        colnames.append('RNA_Prints')
+    if has_length: 
+        colnames.append('length')
+    df.columns = colnames
     
-    #if non-default columns are specified, check whether columns exist:
-    if df_columns != ['ORF', 'Ribo_Prints', 'RNA_Prints']:
-        if set(df_columns).issubset(df.columns):
-            pass
-        else:
-            print('Specified columns do not exist in data frame. Available columns include: \n' +
-                  df.columns)
-        return
-    elif 'RNA_Prints' in df.columns:
-        dats = df[df_columns]
-    else:
-        dats = df[df_columns[:2]]
-        
-
-    #check whether reference RNA-Seq data need to be used
-    if len(dats.columns) == 2:
-        if 'RNA_reference' in parameters.keys():
-            with pkg_resources.open_text(Data, parameters['RNA_reference']) as read_file:
-                RNA_ref = pd.read_csv(read_file)
-        else:
-            print('No column for RNA data or RNA reference set have been specified.')
+    #combine data with reference data for gene length and transcript if required)
+    if (not has_RNA) or (not has_length):
+        #load reference dataset specified in parameterset
+        with pkg_resources.open_text(Data, parameters['gene_reference']) as read_file:
+            genes = pd.read_csv(read_file)
+        #check which column of the reference file contains relevant descriptors
+        #go through up to ten entries in the 'ORF' column
+        found_testname = False
+        for test_row in range(10):
+            testname = df['ORF'][test_row]
+            for column in genes.columns:
+                if testname in genes[column].values:
+                    found_testname = True
+                    add_columns = [column]
+                    break
+        if not found_testname:
+            print('No valid gene or transcript name data found in first dataframe column.')
             return
-        dats.columns = ['ORF', 'Ribo_Prints']
-        dats = dats.merge(RNA_ref, how='inner', on='ORF')
-        print('No mRNA data specified, using reference RNA-Seq data.')
-    elif len(df_columns) == 3:
-        dats.columns = ['ORF', 'Ribo_Prints', 'RNA_Prints']
-    else:
-        print('Incorrect column number. \nfp2poly requires two or three columns in this order: \n' +
-              '1) gene names, 2) Ribo-Seq counts, 3) (optional) RNA-Seq counts')
-        return
-
+        if not has_RNA:
+            add_columns.append('RNA_Prints')
+        if not has_length:
+            add_columns.append('length')
+        dats = df.merge(genes[add_columns],
+              how='inner', left_on='ORF', right_on=add_columns[0])[
+                  ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
     #remove rows where either the RNA prints or Ribo prints are 0
-    # (these do not contribute information to the profile)
+    #(these do not contribute information to the profile)
     dats = dats.loc[(dats['RNA_Prints'] > 0) & (dats['Ribo_Prints'] > 0)]
 
-    ######convert Ribo-Seq reads to RPKM
-
-
-    #combine input dataset with gene length information
-    with pkg_resources.open_text(Data, parameters['gene_reference']) as read_file:
-                genes = pd.read_csv(read_file)
-    dats = dats.merge(genes[['name', 'length']],
-                      how='inner', left_on='ORF', right_on='name')[
-                          ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
-    #calculate RPKM
-    dats['RNA_RPKM'] = dats['RNA_Prints']/(dats['length']/1000)
+    ######convert RNA-Seq reads to RPK
+    dats['RNA_RPK'] = dats['RNA_Prints']/(dats['length']/1000)
 
     #####sort genes into polysome peaks according to RPKM info
 
     #determine conversion factor from Ribo_Prints to no of Ribosomes
     RiboPrints2Ribos = (parameters['Ribo_content'] * parameters['frac_act']) / sum(dats['Ribo_Prints'])
+    #calculate no of Ribos bound to each mRNA population
     dats['Ribos_bound'] = dats['Ribo_Prints'] * RiboPrints2Ribos
-    #determine conversion factor from RNA_RPKM to no of RNAs
-    RNARPKM2RNAs = parameters['RNA_content'] / sum(dats['RNA_RPKM'])
-    dats['RNAs_per_cell'] = dats['RNA_RPKM'] * RNARPKM2RNAs
+    #determine conversion factor from RNA_RPK to no of RNAs
+    RNARPK2RNAs = parameters['RNA_content'] / sum(dats['RNA_RPK'])
+    dats['RNAs_per_cell'] = dats['RNA_RPK'] * RNARPK2RNAs
     #calculate the ribosome load per RNA (RperR)
     dats['RperR'] = dats['Ribos_bound'] / dats['RNAs_per_cell']
+    #remove any nans
     dats = dats.dropna()
     #remove rows where the number of ribosomes per RNA is > poly_limit
     dats = dats.loc[dats['RperR'] <= poly_limit]
@@ -147,12 +151,13 @@ def fp2poly(df, df_columns=['ORF', 'Ribo_Prints', 'RNA_Prints'], parset = 'Scer'
     if remove_spurious_RNAs:
         dats = dats.loc[dats['RNAs_per_cell'] > 0.05]
 
+
     ######assign RNAs into polysome peaks
 
     #make an array to hold the relative weights for each polysome class
     poly_array = np.zeros(poly_limit+2)
     #if indicated, assign idle ribosomes to the first three peaks,
-    # based on the fraction of active ribosomes and the fraction of split inactive ribosomes
+    #based on the fractions of active split inactive ribosomes
     if include_idle:
         idle_ribos = (1 - parameters['frac_act']) * parameters['Ribo_content']
         poly_array[0] += idle_ribos * parameters['frac_split'] * 0.34
@@ -229,7 +234,7 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
         with pkg_resources.open_text(Data, parameters['gene_reference']) as read_file:
                 genes = pd.read_csv(read_file)
         #combine input dataset with gene length information
-        dats = dats.merge(genes[['name', 'length']], how='inner', left_on='ORF', right_on='name')[
+        dats = dats.merge(genes[['systematic', 'length']], how='inner', left_on='ORF', right_on='systematic')[
             ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
         #calculate RPKM
         dats['RNA_RPKM'] = dats['RNA_Prints']/(dats['length']/1000)
@@ -249,7 +254,7 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
         #remove rows where the number of ribosomes per RNA is > poly_limit
         Rdats = Rdats.loc[Rdats['RperR'] <= poly_limit]
         return Rdats
-    
+
     #read in the parameter set to be used
     with pkg_resources.open_text(Data, 'parameters.json') as read_file:
         parameterset = json.load(read_file)
@@ -263,7 +268,7 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
     else:
         print('\'parset\' needs to be either a keyword specifying a pre-defined parameterset, or a dictionary with the keys Species, RNA_content,Ribo_content,frac_act, frac_split, gene_reference and (optional) RNA_reference.')
         return
-    
+
     #prepare datasets and compute RperR values via RNA RPKM values
     dats1 = dats1[dats1_columns]
     dats1.columns = ['ORF', 'RNA_Prints', 'Ribo_Prints']
@@ -327,5 +332,3 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints', 'Ribo_Pri
         return fig, fig.axes, df
     else:
         return fig, fig.axes
-
-
