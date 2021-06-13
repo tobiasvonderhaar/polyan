@@ -2,7 +2,7 @@
 
 ## Purpose
 
-polyan is designed to produce visual output resembling polysome profiles generated with sucrose density gradients. 
+polyan is designed to process Ribosome profiling data (a type of high throughput sequencing data) into visual output resembling polysome profiles generated with sucrose density gradients. 
 These modelled profiles can serve as a convenient quality checking tool for data relating to ribosome densities on mRNAs, and can be used to generate secondary visualisations for assessing movement trends of transcripts between polysome peaks. 
 
 ## Data requirements

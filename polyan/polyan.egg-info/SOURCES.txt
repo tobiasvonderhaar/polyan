@@ -1,0 +1,15 @@
+MANIFEST.in
+README.md
+setup.py
+polyan/__init__.py
+polyan/polyan.py
+polyan.egg-info/PKG-INFO
+polyan.egg-info/SOURCES.txt
+polyan.egg-info/dependency_links.txt
+polyan.egg-info/requires.txt
+polyan.egg-info/top_level.txt
+polyan/Data/GRCh38.csv
+polyan/Data/Untitled.ipynb
+polyan/Data/__init__.py
+polyan/Data/parameters.json
+polyan/Data/sacCer3.csv

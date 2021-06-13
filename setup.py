@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="polyan",
-    version="2021.1.1",
+    version="2021.1.3",
     author="Tobias von der Haar",
     author_email="T.von-der-Haar@kent.ac.uk",
     license = "MIT",
