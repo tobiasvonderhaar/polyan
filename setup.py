@@ -5,8 +5,8 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="polyan",
-    version="2021.1.3",
-    author="Tobias von der Haar",
+    version="2021.1.4",
+    author="Tobias von der Haar, Fabio de Lima Hedayioglu",
     author_email="T.von-der-Haar@kent.ac.uk",
     license = "MIT",
     description="A package for simulating polysome profiles from Ribo-Seq data",
@@ -29,7 +29,7 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        'pandas', 'numpy', 'matplotlib', 'scipy'
+        'pandas', 'numpy', 'matplotlib', 'scipy', 'json'
     ],
     include_package_data=True,
 )

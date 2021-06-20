@@ -1,1 +1,4 @@
 include polyan/Data/*.*
+include CONTRIBUTING.md
+include LICENSE
+include README.md
