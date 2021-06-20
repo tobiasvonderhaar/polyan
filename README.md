@@ -11,4 +11,4 @@ polyan takes as input pandas dataframes which contain, as minimum requirements, 
 
 ## Tutorials
 
-Detailed tutorials are in preparation. 
+Detailed tutorials are available on [protocols.io](https://www.protocols.io/view/using-polyan-a-python-package-for-modelling-polyso-bvyfn7tn). 

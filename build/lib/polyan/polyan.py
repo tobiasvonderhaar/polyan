@@ -37,36 +37,32 @@ def fp2poly(df, has_RNA=True, has_length=False, parset='Scer',
 
     Parameters
     ----------
-    df: the pandas dataframe that contains the footprinting data
+    df : pandas.core.frame.DataFrame
+        A pandas dataframe that contains the footprinting data
 
-    has_RNA: True indicates that the third column contains RNA Seq counts
+    has_RNA : bool
+        True indicates that the third column contains RNA Seq counts
 
-    has_length: True indicates that the third (if no RNA Seq data) or fourth
-    (if with RNA Seq data) column contains gene length data for calculating
-    RPK values
+    has_length : bool
+        True indicates that the third (if no RNA Seq data) or fourth
+        (if with RNA Seq data) column contains gene length data for calculating
+        RPK values
 
-    parset: either a keyword specifying a pre-defined parameterset
-    (currently 'Scer' or 'HEK', or a dictionary specifying 'Species':
-    species name, 'RNA_content':number of RNAs per cell, 'Ribo_content':
-    number of ribosomes per cell, 'frac_act': fraction of actively
-    translating ribosomes, 'frac_split':     fraction of inactive
-    ribosomes that are split into separate subunits, 'gene_reference':
-    path to a file listing all genes of the organism with their lengths
-    and (optionally, if no column with RNA abundances is contained in df)
-    'RNA_reference': path to a file listing RNA abundances .
-
-    include_idle: bool, if True (default) idle ribosomes are included.
-
-    poly_limit:int. ignore any mRNAs containing more ribosomes than
-    specified here. Deault is 30.
-
-    remove_spurious_RNAs: bool, if True (default) ignores RNAs
-    expressed at fewer than 0.05 RNAs per cell.
+    parset : dict
+        Either a keyword specifying a pre-defined parameterset
+        (currently 'Scer' or 'HEK'), or a dictionary of the form {'Species':
+        species name, 'RNA_content':number of RNAs per cell, 'Ribo_content':
+        number of ribosomes per cell, 'frac_act': fraction of actively
+        translating ribosomes, 'frac_split':     fraction of inactive
+        ribosomes that are split into separate subunits, 'gene_reference':
+        path to a file listing all genes of the organism with their lengths
+        and (optionally, if no column with RNA abundances is contained in df)
+        'RNA_reference': path to a file listing RNA abundances}
 
     Returns
     -------
-    numpy array, containing the volume of individual peaks of the
-    modelled polysome.
+    numpy.ndarray
+        Volumes of individual peaks of the modelled polysome.
     """
 
     # ####prepare parset
@@ -131,7 +127,7 @@ def fp2poly(df, has_RNA=True, has_length=False, parset='Scer',
             elif df.ORF[0][:3] == 'NM_':
                 add_columns = ['refseq']
             else:
-                add_columns = 'gene'
+                add_columns = ['gene']
         # combine dataframe with reference data (RNA abundance and ORF lengths)
         if not has_RNA:
             add_columns.append('RNA_Prints')
@@ -139,9 +135,9 @@ def fp2poly(df, has_RNA=True, has_length=False, parset='Scer',
             add_columns.append('length')
         dats = df.merge(genes[add_columns],
                         how='inner', left_on='ORF', right_on=add_columns[0])[
-                        ['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
+                        ['ORF', 'Ribo_Prints', 'RNA_Prints', 'length']]
     else:
-        dats = df[['ORF', 'RNA_Prints', 'Ribo_Prints', 'length']]
+        dats = df[['ORF', 'Ribo_Prints', 'RNA_Prints', 'length']]
     # remove rows where either the RNA prints or Ribo prints are 0
     # (these do not contribute information to the profile)
     dats = dats.loc[(dats['RNA_Prints'] > 0) & (dats['Ribo_Prints'] > 0)]
@@ -208,7 +204,17 @@ def plot_poly(peak_vols):
 
     """
     Returns x and y coordinates of a polysome profile from a list of peak
-    volumes computed by fp2poly
+    volumes computed by fp2poly.
+
+    Parameters
+    ----------
+    peak_vols : numpy.ndarray
+        Output from fp2poly containing peak volumes for a dataset.
+
+    Returns
+    -------
+    tuple
+        the x and y parameters for the modelled polysome profile
     """
 
     # define the function for returning a normal distribution centred around mu
@@ -238,15 +244,34 @@ def plot_poly(peak_vols):
     return x, sum_trace
 
 
-def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints',
-                     'Ribo_Prints'], dats2_columns=['ORF', 'RNA_Prints',
-                     'Ribo_Prints'], parset='Scer', colors=['steelblue',
-                     'orange'], conditions=['Cond. 1', 'Cond. 2'],
-                     return_df=False):
+def compare_profiles(dats1, dats2, dats1_columns=['ORF','Ribo_Prints',
+                                                  'RNA_Prints'],
+                      dats2_columns=['ORF', 'RNA_Prints', 'Ribo_Prints'],
+                      parset='Scer', colors=['steelblue', 'orange'],
+                      conditions=['Cond. 1', 'Cond. 2'],
+                      return_df=False):
 
     """
     Computes and displays the predominant movements of transcripts between
     polysome peaks for two conditions.
+
+    Parameters
+    ----------
+    dats1 : pandas.core.frame.DataFrame
+    dats2 : pandas.core.frame.DataFrame
+        pandas dataframes containing the footprinting data
+
+    dats1_columns : list
+    dats2_columns : list
+        lists containing the column names with ORF, Ribo-Seq and RNA-Seq data
+
+    parset: dict
+        the context data for the organism (Scer or HEK)
+
+    Returns
+    -------
+    (matplotlib.figure.Figure,matplotlib.axes._subplots.AxesSubplot)
+        A tuple with the Figure and Axes objects of the plot.
     """
 
     def counts_to_RPKM(dats):
@@ -372,7 +397,23 @@ def compare_profiles(dats1, dats2, dats1_columns=['ORF', 'RNA_Prints',
 def rmsd_profile(peakvols1, peakvols2, parset='Scer'):
 
     '''Calculates the Root Mean Square Deviation between
-    two polysome profiles simulated using polyan.fp2poly().'''
+    two polysome profiles simulated using polyan.fp2poly().
+
+    Parameters
+    ----------
+    peakvols1 : numpy.ndarray
+    peakvols2 : numpy.ndarray
+        arrays containing peak volumes for two datasets calculated by fp2 poly
+
+    parset : str
+        The name of the reference peak volumes to be used if peakvols2 is "ref"
+        This parameter is only evaluated if peakvols2 is refseq
+
+    Returns
+    -------
+    float
+        the calculated RMSD between the two peak volume arrays.
+    '''
 
     if type(peakvols2) == str and peakvols2 == 'ref':
         if parset == 'Scer':
@@ -411,7 +452,23 @@ def nrmsd_profile(peakvols1, peakvols2, parset='Scer'):
     between two polysome profiles simulated using
     polyan.fp2poly(). Normalisation is to the average
     RMSD for all pairwise comparison of datasets used in
-    the original publication.'''
+    the original publication.
+
+    Parameters
+    ----------
+    peakvols1 : numpy.ndarray
+    peakvols2 : numpy.ndarray
+        arrays containing peak volumes for two datasets calculated by fp2 poly
+
+    parset : str
+        The name of the reference peak set to be used for the normalisation
+        Possibe values are 'Scer' or 'HEK'
+
+    Returns
+    -------
+    float
+        the calculated normalised RMSD between the two peak volume arrays.
+    '''
 
     # define the reference for normalisation, ie the average
     # rmsd for all pairwise comparions for the datasets used
