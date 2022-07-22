@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+from scipy.stats import norm
 
 try:
     import importlib.resources as pkg_resources
@@ -407,7 +408,7 @@ def rmsd_profile(peakvols1, peakvols2, parset='Scer'):
 
     parset : str
         The name of the reference peak volumes to be used if peakvols2 is "ref"
-        This parameter is only evaluated if peakvols2 is refseq
+        This parameter is only evaluated if peakvols2 is ref.
 
     Returns
     -------
@@ -477,5 +478,44 @@ def nrmsd_profile(peakvols1, peakvols2, parset='Scer'):
         normval = 0.018049851598865935
     elif parset == 'HEK':
         normval = 0.01264714889273241
+    else: 
+        return -1
 
     return rmsd_profile(peakvols1, peakvols2) / normval
+
+# =============================================================================
+
+
+def prmsd_profile(peakvols1, peakvols2, parset='Scer'):
+
+    '''Calculates the p-value for observing a particular
+    Root Mean Square Deviation between two polysome 
+    profiles simulated using polyan.fp2poly(). The 
+    p-value is calculated based on the distribution of 
+    individual RMSD values for for all pairwise comparisons
+    of "known good" datasets used in the original publication.
+
+    Parameters
+    ----------
+    peakvols1 : numpy.ndarray
+    peakvols2 : numpy.ndarray
+        arrays containing peak volumes for two datasets 
+        calculated by fp2poly
+
+    parset : str
+        The name of the reference peak set to be used if 
+        prmsd_profile is called with the "peakvols2 = ref" 
+        option. Possibe values are 'Scer' or 'HEK'.
+
+    Returns
+    -------
+    float
+        The probability of observing an RMSD with similar magnitude as that 
+        for peakvols1 and peakvols2 in the reference RMSD values.
+    '''
+
+    # return the probability of observing the RMSD value for the
+    #specified comparison, based on the parameters of a normal
+    #distribution fitted to the reference RMSD values.
+
+    return 1-norm(0.014, 0.005).cdf(rmsd_profile(peakvols1, peakvols2))

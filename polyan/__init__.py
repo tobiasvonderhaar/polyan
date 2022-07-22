@@ -1,1 +1,1 @@
-from .polyan import fp2poly,plot_poly,compare_profiles,rmsd_profile,nrmsd_profile
+from .polyan import fp2poly,plot_poly,compare_profiles,rmsd_profile,prmsd_profile
